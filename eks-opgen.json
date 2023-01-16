@@ -1,0 +1,60 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {},
+    "variables": {
+        "storageNameUnique": "[concat('storage', uniqueString(resourceGroup().id))]",
+        "blobNameUnique": "[concat('blobStorage', uniqueString(resourceGroup().id))]",
+        "serverFarmNameUnique": "[concat('serverFarm', uniqueString(resourceGroup().id))]",
+        "siteNameUnique": "[concat('website', uniqueString(resourceGroup().id))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2019-06-01",
+            "name": "[variables('storageNameUnique')]",
+            "location": "[resourceGroup().location]",
+            "resources": [
+                {
+                "type": "/blobServices/containers",
+                "apiversion": "2019-06-01",
+                "name": "[variables('blobNameUnique')]",
+                "dependsOn": [ //denne er avhengig av at storageaccounten som vi har laget over finnes før denne rulles ut.
+                    "[resourceID('Microsoft.storage/storageAccounts', variables('storageNameUnique'))]" 
+                ] 
+                } 
+            ] 
+        }, 
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2018-02-01",
+            "name": "[variables('serverFarmNameUnique')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "S1"
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2018-02-01",
+            "name": "[variables('siteNameUnique')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms',variables('serverFarmNameUnique'))]",
+                "[resourceId('Microsoft.storage/storageAccounts',variables('storageNameUnique'))]"
+            ],
+            "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('serverFarmNameUnique'))]",
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "storageAccessKey",
+                            "value": "[listKeys(resourceId('Microsoft.storage/storageAccounts',variables('storageNameUnique')), '2019-06-01').keys[0].value]"
+                        }
+                    ]
+                }
+            }
+        }
+        
+    ]
+}

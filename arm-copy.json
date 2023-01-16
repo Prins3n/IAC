@@ -1,0 +1,69 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "storages": {
+            "type": "int",
+            "defaultValue": 5
+        },
+        "planName": {
+            "type": "string",
+            "defaultValue": "mywebappplan"
+        },
+        "webAppName": {
+            "type": "string",
+            "defaultValue": "mywebbapp"
+        },
+        "storageName": {
+            "type": "string",
+            "defaultValue": "storage"
+        }
+    },
+    "variables": {
+        "storageName": "[concat(parameters('storageName'), uniqueString(resourceGroup().id))]",
+        "planName": "[concat(parameters('planName'), uniqueString(resourceGroup().id))]",
+        "webAppName": "[concat(parameters('webAppName'), uniqueString(resourceGroup().id))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2018-02-01",
+            "name": "[variables('storageName')]",
+            "location": "[resourceGroup().location]",
+            "kind": "StorageV2",
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "copy": {
+                "name": "copyStorage",
+                "count": "[length(parameters('storages'))]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2018-02-01",
+            "name": "[variables('webAppName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+                "copyStorage"
+            ],
+            "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+                "siteConfig": {
+                    "copy": [
+                        {
+                            "name":"appSettings",
+                            "count": "[parameters('storages')]",
+                            "input": {
+                                "name": "[concat('storageAccessKey', copyIndex('appSettings'))]",
+                                "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', concat('storage', uniqueString(resourceGroup().id), copyIndex('appSettings', 1))), '2019-06-01').keys[0].value]"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

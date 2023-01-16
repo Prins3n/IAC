@@ -1,0 +1,74 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "storageAccAlgortimComputer": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 24,
+			"metaData": {
+                "description": "Unique name for Storageaccount"
+            }
+        }, 
+        "SKU": {
+            "type": "string",
+            "defaultValue": ""
+        }
+    },
+    "functions": [],
+    "variables": {
+        "blobNameUnique": "[concat('blobStorage', uniqueString(resourceGroup().id))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion":"2019-06-01",
+            "name": "[parameters('storageAccAlgortimComputer')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "[parameters('SKU')]"
+            },
+            "resources": [
+                {
+                "type": "/blobServices/containers",
+                "apiversion": "2019-06-01",
+                "name": "[variables('blobNameUnique')]",
+                "dependsOn": [ 
+                    "[resourceID('Microsoft.storage/storageAccounts', parameters('storageAccAlgortimComputer'))]" 
+                ]
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2018-02-01",
+            "name": "[concat(parameters('storageAccAlgortimComputer'), 'serverfarm')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "[parameters('SKU')]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2018-02-01",
+            "name": "[concat(parameters('storageAccAlgortimComputer'), 'site')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', concat(parameters('storageAccAlgortimComputer'),'serverfarm'))]",
+                "[resourceId('Microsoft.storage/storageAccounts',concat(parameters('storageAccAlgortimComputer')))]"
+            ],
+            "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', concat(parameters('storageAccAlgortimComputer'),'serverfarm'))]",
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "storageAccessKey",
+                            "value": "[listKeys(resourceId('Microsoft.storage/storageAccounts',concat(parameters('storageAccAlgortimComputer'))), '2019-06-01').keys[0].value]"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}
